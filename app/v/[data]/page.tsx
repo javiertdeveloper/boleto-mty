@@ -16,7 +16,7 @@ interface BoletoData {
 
 function decodeBoleto(encoded: string): BoletoData | null {
   try {
-    const json = atob(decodeURIComponent(encoded))
+    const json = decodeURIComponent(atob(decodeURIComponent(encoded)))
     const data = JSON.parse(json)
     if (!data.c || !data.e) return null
     return data as BoletoData
