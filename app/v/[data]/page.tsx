@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, use } from 'react'
+import { useState, useMemo, use } from 'react'
 
 interface BoletoData {
   c: string  // controlNumber
@@ -23,6 +23,36 @@ function decodeBoleto(encoded: string): BoletoData | null {
   } catch {
     return null
   }
+}
+
+const LOGO_KEYWORDS: [string, string][] = [
+  ['suburban', 'SUBURBAN'], ['timovil', 'TIMOVIL'], ['golden', 'GOLDEN'],
+  ['ecofy', 'ECOFY'], ['ejecutivo', 'EJECUTIVO'], ['contaxi', 'CONTAXI'],
+  ['totsa plus', 'TPLUS'], ['tplus', 'TPLUS'], ['totsa', 'TOTSA'],
+  ['tpa', 'TPA'], ['mundo verde', 'MUNDOVERDE'], ['privauto', 'PRIVAUTO'],
+]
+
+function getLogoFile(name: string): string | null {
+  const lower = name.toLowerCase()
+  for (const [kw, file] of LOGO_KEYWORDS) {
+    if (lower.includes(kw)) return file
+  }
+  return null
+}
+
+function CompanyLogo({ name }: { name: string }) {
+  const [show, setShow] = useState(true)
+  const file = getLogoFile(name)
+  if (!file || !show) return null
+  return (
+    <img
+      src={`/logos/${file}.jpg`}
+      alt={name}
+      onError={() => setShow(false)}
+      className="mt-1 rounded object-contain"
+      style={{ height: 40, width: 'auto', maxWidth: '100%' }}
+    />
+  )
 }
 
 function ErrorView() {
@@ -165,6 +195,7 @@ export default function BoletoPage({ params }: { params: Promise<{ data: string 
                 <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400">
                   Compania
                 </p>
+                <CompanyLogo name={boleto.e} />
                 <p className="mt-1 text-[17px] font-bold text-black">{boleto.e}</p>
               </div>
               <div className="text-right">
