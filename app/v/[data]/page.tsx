@@ -12,7 +12,10 @@ interface BoletoData {
   p: number  // pasajeros
   q: number  // equipaje
   f: string  // fecha
+  x?: number // timestamp (ms) for expiration
 }
+
+const BOLETO_EXPIRY_HOURS = 2
 
 function decodeBoleto(encoded: string): BoletoData | null {
   try {
@@ -55,6 +58,40 @@ function CompanyLogo({ name }: { name: string }) {
   )
 }
 
+function ExpiredView() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center px-6" style={{ background: 'linear-gradient(180deg, #f8f8f8, #f0f0f0)' }}>
+      <div className="flex h-20 w-20 items-center justify-center rounded-full" style={{ background: 'rgba(245, 158, 11, 0.1)' }}>
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        </svg>
+      </div>
+      <p className="mt-5 text-center text-xl font-semibold text-gray-800">Boleto expirado</p>
+      <p className="mt-2 max-w-[260px] text-center text-sm text-gray-400">
+        Este boleto ya no es valido. Los boletos expiran {BOLETO_EXPIRY_HOURS} horas despues de su emision.
+      </p>
+    </div>
+  )
+}
+
+function UsedView() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center px-6" style={{ background: 'linear-gradient(180deg, #f8f8f8, #f0f0f0)' }}>
+      <div className="flex h-20 w-20 items-center justify-center rounded-full" style={{ background: 'rgba(107, 114, 128, 0.1)' }}>
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+          <polyline points="22 4 12 14.01 9 11.01" />
+        </svg>
+      </div>
+      <p className="mt-5 text-center text-xl font-semibold text-gray-800">Boleto ya utilizado</p>
+      <p className="mt-2 max-w-[260px] text-center text-sm text-gray-400">
+        Este boleto ya fue escaneado anteriormente y no puede usarse de nuevo.
+      </p>
+    </div>
+  )
+}
+
 function ErrorView() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-6" style={{ background: 'linear-gradient(180deg, #f8f8f8, #f0f0f0)' }}>
@@ -76,8 +113,36 @@ function ErrorView() {
 export default function BoletoPage({ params }: { params: Promise<{ data: string }> }) {
   const { data: encoded } = use(params)
   const boleto = useMemo(() => decodeBoleto(encoded), [encoded])
+  const [status, setStatus] = useState<'valid' | 'expired' | 'used' | null>(null)
+
+  // Check expiration + one-time use on mount
+  useState(() => {
+    if (!boleto) return
+    // Check expiration
+    if (boleto.x) {
+      const elapsed = Date.now() - boleto.x
+      if (elapsed > BOLETO_EXPIRY_HOURS * 60 * 60 * 1000) {
+        setStatus('expired')
+        return
+      }
+    }
+    // Check if already used (localStorage on the user's phone)
+    const usedKey = `boleto_used_${boleto.c}`
+    if (typeof window !== 'undefined' && localStorage.getItem(usedKey)) {
+      setStatus('used')
+      return
+    }
+    // Mark as used
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(usedKey, String(Date.now()))
+    }
+    setStatus('valid')
+  })
 
   if (!boleto) return <ErrorView />
+  if (status === 'expired') return <ExpiredView />
+  if (status === 'used') return <UsedView />
+  if (status === null) return null
 
   const vehicleLabel = boleto.v === 'suv' ? 'Camioneta' : boleto.v === 'sedan' ? 'Sedan' : boleto.v
 
