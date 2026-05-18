@@ -120,7 +120,21 @@ export default function BoletoPage({ params }: { params: Promise<{ data: string 
   if (status === 'expired') return <ExpiredView />
   if (status === null) return null
 
-  const vehicleLabel = boleto.v === 'suv' ? 'Camioneta' : boleto.v === 'sedan' ? 'Sedan' : boleto.v
+  // Resuelve el nombre del vehículo a algo legible. El kiosko manda el
+  // `nombre` del servicio ("SEDAN" / "CAMIONETA" / "EJECUTIVO" del backend),
+  // pero algunos legacy QRs pueden tener un UUID o `'suv'/'sedan'`. Toleramos
+  // las tres formas. Cualquier string > 30 chars asumimos que es un UUID
+  // (los nombres reales no llegan a ese largo) y caemos a "Vehículo" genérico.
+  const vehicleLabel = (() => {
+    const raw = (boleto.v ?? '').toString().trim()
+    if (!raw) return 'Vehículo'
+    if (raw.length > 30) return 'Vehículo'
+    const lower = raw.toLowerCase()
+    if (lower === 'suv' || lower.includes('camion')) return 'Camioneta'
+    if (lower === 'sedan' || lower.includes('sedán')) return 'Sedan'
+    // Cualquier otro nombre legible (e.g. "EJECUTIVO") → Title Case.
+    return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase()
+  })()
 
   const handleDownload = async () => {
     const { jsPDF } = await import('jspdf')
@@ -253,49 +267,60 @@ export default function BoletoPage({ params }: { params: Promise<{ data: string 
             {/* Separator */}
             <div className="my-4 border-t border-dashed border-gray-200" />
 
-            {/* Origin */}
-            <div className="flex items-start gap-2.5">
-              <div className="mt-[7px] h-[10px] w-[10px] flex-none rounded-full bg-[#3B82F6]" />
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400">Origen</p>
-                <p className="mt-0.5 text-[14px] font-semibold text-black">
-                  Aeropuerto Internacional de Monterrey
+            {/* Vehículo — primera fila con accent bar ink (mismo lenguaje del kiosko) */}
+            <div className="flex items-start gap-3">
+              <div className="mt-1 h-10 w-[3px] flex-none rounded-full bg-[#0A0A0A]" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-gray-400">
+                  Vehículo
                 </p>
-                <p className="text-[12px] text-gray-400">Terminal C</p>
-              </div>
-            </div>
-
-            {/* Dashed connector */}
-            <div className="my-1.5 ml-[4px] border-l-2 border-dashed border-gray-200" style={{ height: 16 }} />
-
-            {/* Destination */}
-            <div className="flex items-start gap-2.5">
-              <div className="mt-[7px] h-[10px] w-[10px] flex-none rounded-full bg-[#10B981]" />
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400">Destino</p>
-                <p className="mt-0.5 text-[14px] font-semibold text-black">{boleto.d}</p>
-                {boleto.a && <p className="text-[12px] text-gray-400">{boleto.a}</p>}
+                <p className="mt-1 text-[18px] font-light tracking-[-0.01em] text-black">
+                  {vehicleLabel}
+                </p>
+                {(boleto.p > 0 || boleto.q > 0) && (
+                  <p className="text-[12px] text-gray-400">
+                    {boleto.p > 0 && `${boleto.p} pasajeros`}
+                    {boleto.p > 0 && boleto.q > 0 && ' · '}
+                    {boleto.q > 0 && `${boleto.q} equipajes`}
+                  </p>
+                )}
               </div>
             </div>
 
             {/* Separator */}
             <div className="my-4 border-t border-dashed border-gray-200" />
 
-            {/* Info grid */}
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400">Vehiculo</p>
-                <p className="mt-1 text-[15px] font-bold text-black">{vehicleLabel}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400">Pasajeros</p>
-                <p className="mt-1 text-[22px] font-bold leading-none text-black">{boleto.p}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400">Equipaje</p>
-                <p className="mt-1 text-[22px] font-bold leading-none text-black">{boleto.q}</p>
+            {/* Origen — accent bar ink */}
+            <div className="flex items-start gap-3">
+              <div className="mt-1 h-10 w-[3px] flex-none rounded-full bg-[#0A0A0A]" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-gray-400">
+                  Origen
+                </p>
+                <p className="mt-1 text-[18px] font-light tracking-[-0.01em] text-black">
+                  Aeropuerto Monterrey
+                </p>
+                <p className="text-[12px] text-gray-400">Terminal C</p>
               </div>
             </div>
+
+            {/* Separator */}
+            <div className="my-4 border-t border-dashed border-gray-200" />
+
+            {/* Destino — accent bar mint */}
+            <div className="flex items-start gap-3">
+              <div className="mt-1 h-10 w-[3px] flex-none rounded-full bg-[#10B981]" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-gray-400">
+                  Destino
+                </p>
+                <p className="mt-1 text-[18px] font-light tracking-[-0.01em] text-black">
+                  {boleto.d || 'Tu destino'}
+                </p>
+                {boleto.a && <p className="text-[12px] text-gray-400">Zona {boleto.a}</p>}
+              </div>
+            </div>
+
 
             {/* Separator */}
             <div className="my-4 border-t border-dashed border-gray-200" />
