@@ -19,13 +19,7 @@ const BOLETO_EXPIRY_HOURS = 2
 
 function decodeBoleto(encoded: string): BoletoData | null {
   try {
-    // Convertir base64url → base64 estándar (RFC 4648 §5 reverse). El kiosko
-    // manda URL-safe sin padding; recuperamos `+`/`/` y agregamos `=` de
-    // padding faltante. Backward-compat: si recibimos base64 estándar (URLs
-    // viejos), los replace no afectan nada porque no había `-`/`_` en su lugar.
-    const standard = encoded.replace(/-/g, '+').replace(/_/g, '/')
-    const padded = standard + '='.repeat((4 - (standard.length % 4)) % 4)
-    const json = decodeURIComponent(atob(padded))
+    const json = decodeURIComponent(atob(decodeURIComponent(encoded)))
     const data = JSON.parse(json)
     if (!data.c || !data.e) return null
     return data as BoletoData
@@ -150,6 +144,10 @@ export default function BoletoPage({ params }: { params: Promise<{ data: string 
     doc.setFont('helvetica', 'bold')
     doc.text('AEROPUERTO INTERNACIONAL', 40, 10, { align: 'center' })
     doc.text('DE MONTERREY', 40, 15, { align: 'center' })
+    doc.setFontSize(7)
+    doc.setFont('helvetica', 'normal')
+    doc.text('Terminal C', 40, 20, { align: 'center' })
+
     doc.setDrawColor(200)
     doc.setLineDashPattern([1, 1], 0)
     doc.line(5, 24, 75, 24)
@@ -183,8 +181,10 @@ export default function BoletoPage({ params }: { params: Promise<{ data: string 
     doc.setFontSize(7)
     doc.setFont('helvetica', 'bold')
     doc.text('Aeropuerto Intl. de Monterrey', 5, 63)
-
     doc.setFont('helvetica', 'normal')
+    doc.setFontSize(6)
+    doc.text('Terminal C', 5, 67)
+
     doc.setFontSize(6)
     doc.text('DESTINO', 5, 74)
     doc.setFontSize(7)
@@ -300,6 +300,7 @@ export default function BoletoPage({ params }: { params: Promise<{ data: string 
                 <p className="mt-1 text-[18px] font-light tracking-[-0.01em] text-black">
                   Aeropuerto Monterrey
                 </p>
+                <p className="text-[12px] text-gray-400">Terminal C</p>
               </div>
             </div>
 
@@ -361,7 +362,7 @@ export default function BoletoPage({ params }: { params: Promise<{ data: string 
 
         {/* Footer */}
         <p className="mt-5 text-center text-[11px] text-gray-300">
-          Aeropuerto Internacional de Monterrey
+          Aeropuerto Internacional de Monterrey — Terminal C
         </p>
       </div>
     </div>
